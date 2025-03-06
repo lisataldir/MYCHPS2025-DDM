@@ -1,4 +1,4 @@
-% Conditionnement de la matrice de rigidité
+% Conditionnement de la matrice de rigidité pour N = 1
 
 % Données du problème
 L = 100;

@@ -74,15 +74,15 @@ for idx = 1:length(N_values)
             end
         end
         
-        % Assemblage global
-        assembled_Sp = blkdiag(Sp{:});
-        assembled_A = horzcat(A{:});
+        % Concaténation des opérateurs
+        concat_Sp = blkdiag(Sp{:});
+        concat_A = horzcat(A{:});
         
-        % Résolution du problème
-        Sp_global = assembled_A * assembled_Sp * assembled_A';
+        % Assemblage
+        Sp_assembled = concat_A * concat_Sp * concat_A';
         
         tab_n(i) = i;
-        tab_cond(i) = cond(Sp_global);
+        tab_cond(i) = cond(Sp_assembled);
     end
   
     plot(tab_n, tab_cond, 'LineWidth', 4, 'DisplayName', sprintf('N=%d', N));
