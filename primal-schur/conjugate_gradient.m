@@ -70,8 +70,8 @@ assembled_bp = zeros(size(assembled_A,2),1);
 assembled_bp(end) = Fd;
 
 Sp = assembled_A * assembled_Sp * assembled_A';
-% Fin du calcul préliminaire
 
+% Fin du calcul préliminaire
 
 % ---------------------------------------------------------------
 

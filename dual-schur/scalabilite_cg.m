@@ -1,4 +1,4 @@
-% Scalabilité de la méthode du gradient conjugué
+% Scalabilité de la méthode du gradient conjugué 
 % Pour plus de commentaires sur la méthode, voir le fichier
 % conjugate_gradient.m
 
@@ -19,6 +19,7 @@ grid on;
 title('Nombre d''itérations en fonction de N');
 xlabel('N');
 ylabel('Nombre d''itérations');
+ylim([1, 20]);
 xlim([1, 30]);
 
 for N = 2:30
@@ -42,10 +43,10 @@ for N = 2:30
         kbb = cell(N,1);
         kib = cell(N,1);
         kii = cell(N,1);
-        Sp_local = cell(N,1);
-        Rb_local = cell(N,1);
-        A_local = cell(N,1);
-        bp_local = cell(N,1);
+        Sp = cell(N,1);
+        Sd = cell(N,1);
+        Rb = cell(N,1);
+        A = cell(N,1);
         num_local_interface = cell(N,1);
         
         for s = 1:N
@@ -54,72 +55,79 @@ for N = 2:30
                 kii{s} = k(2:n-1, 2:n-1);
                 kib{s} = k(2:n-1, n);
                 kbb{s} = k(n, n);
-                A_local{s} = zeros(N-1,1);
-                A_local{s}(1) = 1;
-                bp_local{s} = zeros(1,1);
                 num_local_interface{s} = 1;
             elseif s == N
                 kii{s} = k(2:n, 2:n);
                 kib{s} = k(2:n, 1);
                 kbb{s} = k(1, 1);
-                A_local{s} = zeros(N-1,1);
-                A_local{s}(N-1) = 1;
-                bp_local{s} = Fd*ones(1,1);
                 num_local_interface{s} = 2*(N-1);
             else
                 kii{s} = k(2:n-1, 2:n-1);
                 kib{s} = k(2:n-1, [1, n]);
                 kbb{s} = k([1, n], [1, n]);
-                A_local{s} = zeros(N-1,2);
-                A_local{s}(s-1,1) = 1;
-                A_local{s}(s,2) = 1;
-                bp_local{s} = zeros(2,1);
                 num_local_interface{s} = [max(num_local_interface{s-1})+1; max(num_local_interface{s-1})+2];
             end
-            Sp_local{s} = kbb{s} - kib{s}' * (kii{s} \ kib{s});
-            Rb_local{s} = null(Sp_local{s});
-        end
-        assembled_Sp = blkdiag(Sp_local{:});
-        assembled_A = horzcat(A_local{:});
-        assembled_bp = zeros(size(assembled_A,2),1);
-        assembled_bp(end) = Fd;
+            Sp{s} = kbb{s} - kib{s}' * (kii{s} \ kib{s});
+            if s==N
+                Sp{s} = 0; 
+            end
         
-        Sp = assembled_A * assembled_Sp * assembled_A';
+            Sd{s} = pinv(Sp{s});
+            Rb{s} = null(Sp{s});
+        
+            if s == 1
+                A{s} = zeros(N-1,1);
+                A{s}(1) = 1;
+            elseif s > 1 && s < N
+                A{s} = zeros(N-1,2);
+                A{s}(s-1,1) = -1;
+                A{s}(s,2) = 1;
+            elseif s == N
+                A{s} = zeros(N-1,1);
+                A{s}(N-1) = -1;
+            end
+        end
+        
+        concat_Sd = blkdiag(Sd{:});
+        concat_A = horzcat(A{:});
+        concat_bd = zeros(size(concat_A,2),1);
+        concat_bp = zeros(size(concat_A,2),1);
+        concat_bp(end) = Fd;
+        concat_Rb = blkdiag(Rb{:});
+        Sd_assembled = concat_A * concat_Sd * concat_A';
+        bd_assembled = concat_A * concat_bd;
+        G = concat_A * concat_Rb;
+        e = concat_Rb' * concat_bp;
 
         % ---------------------------------------------------------------
         % Étape 2 - Algorithme du gradient conjugué
         % ---------------------------------------------------------------
 
-        u = zeros(N*(n-1) + 1, 1);
-        f = zeros(N*(n-1) + 1, 1);
-        f(N*(n-1) + 1) = Fd;
-        assembled_ub = assembled_A'*u(interface);
-        rb_local = cell(N,1);
-        for s=1:N  
-            idx_b = intersect(interface, substruct{s});
-            idx_i = setdiff(substruct{s}, [1, interface]); 
-            u(idx_i) = kii{s} \ (f(idx_i) - kib{s} * u(idx_b));
-            rb_local{s} = bp_local{s} - Sp_local{s}*u(idx_b);
-        end
-  
-        assembled_rb = vertcat(rb_local{:});
-        rb = assembled_A*assembled_rb;
-        db = rb;
+        P = eye(length(G)) - G * ((G' * G) \ G'); 
+        lambda = - G * ((G' * G) \ e);
+        r = P' * (-bd_assembled - Sd_assembled * lambda);
+        z = P * (Sd_assembled \ r); 
+        d = z;
         
-        iter=0;
-        while(norm(rb)>1e-3)
-            assembled_db = assembled_A'*db;
-            for s=1:N
-                idx_i = setdiff(substruct{s}, [1, interface]); 
-                di = kii{s} \ (f(idx_i) - kib{s} * assembled_db(num_local_interface{s}));
+        d_values = [];
+        iter = 1;
+        while (norm(r) > 1e-3)
+            p = P'*Sd_assembled*d;
+            alpha = r'*d/(d'*p);
+            lambda = lambda + alpha*d;
+            r = r - alpha*p;
+            z = P * (Sd_assembled \ r); 
+            beta = zeros(iter+1, 1);
+            d_values = [d_values, d]; 
+            for j=1:iter
+                beta(j) = -z'*p/(d_values(:,j)'*p);
             end
-            alpha = rb'*rb/(db'*Sp*db);
-            u(interface) = u(interface) + alpha*db;
-            rb = rb - alpha*Sp*db;
-            beta = rb'*Sp*db/(db'*Sp*db);
-            db = rb + beta*db;
+            d = z + sum(beta)*d;
             iter = iter + 1;
         end
+        
+        concat_alpha_b = (G' * G) \ (G' * (-bd_assembled - Sd_assembled * lambda));
+        concat_ub = concat_Sd*(concat_bp + concat_A'*lambda) + concat_Rb*concat_alpha_b;
 
         % ---------------------------------------------------------------
         % Étape 3 - Stockage du nombre d'itérations

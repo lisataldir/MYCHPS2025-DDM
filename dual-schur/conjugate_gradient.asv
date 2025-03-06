@@ -100,6 +100,10 @@ e = concat_Rb' * concat_bp;
 P = eye(length(G)) - G * ((G' * G) \ G'); 
 lambda = - G * ((G' * G) \ e);
 r = P' * (-bd_assembled - Sd_assembled * lambda);
+% Pour éviter les erreurs numériques
+for i=1:length(r)
+    if()
+end
 z = P * (Sd_assembled \ r); 
 d = z;
 

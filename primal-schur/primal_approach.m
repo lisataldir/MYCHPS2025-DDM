@@ -1,3 +1,5 @@
+% Résolution par la méthode primale
+
 % Données du problème
 L = 100;
 S = 10;
@@ -28,7 +30,7 @@ k = k0 * (2*eye(n) - diag(ones(n-1, 1), 1) - diag(ones(n-1, 1), -1));
 k(1,1) = k0;
 k(n,n) = k0;
 
-% Initialisation
+% Initialisation des sous-structures
 substruct = cell(N,1);
 kbb = cell(N,1);
 kib = cell(N,1);
@@ -36,6 +38,7 @@ kii = cell(N,1);
 Sp = cell(N,1);
 Rb = cell(N,1);
 A = cell(N,1);
+
 
 for s = 1:N
     % Définition des sous-structures
@@ -76,18 +79,20 @@ for s = 1:N
     end
 end
 
-% Assemblage global
-assembled_Sp = blkdiag(Sp{:});
-assembled_A = horzcat(A{:});
-assembled_bp = zeros(size(assembled_A,2),1);
-assembled_bp(end) = Fd;
+% Concatenation
+concat_Sp = blkdiag(Sp{:});
+concat_A = horzcat(A{:});
+concat_bp = zeros(size(concat_A,2),1);
+concat_bp(end) = Fd;
+
+% Assemblage
+Sp_assembled = concat_A * concat_Sp * concat_A';
+bp_assembled = concat_A * concat_bp;
 
 % Résolution du problème
-Sp_global = assembled_A * assembled_Sp * assembled_A';
-bp_global = assembled_A * assembled_bp;
 
 % Calcul du déplacement aux interfaces
-u(interface) = Sp_global \ bp_global;
+u(interface) = Sp_assembled \ bp_assembled;
 
 % Calcul des déplacements internes
 for s = 1:N
@@ -97,9 +102,9 @@ for s = 1:N
 end
 
 % Affichage des solutions
-disp('Matrice de Schur :');
-disp(Sp_global);
+disp('Matrice primale de Schur :');
+disp(Sp_assembled);
 disp('bp :');
-disp(bp_global);
+disp(bp_assembled);
 disp('Déplacements :');
 disp(u);
